@@ -17,3 +17,15 @@ export const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
+
+// Firebase App Check — preparado para activación gradual.
+// Para habilitar: registrar la app en Firebase Console > App Check,
+// obtener el siteKey de reCAPTCHA Enterprise/v3, y descomentar:
+//
+//   import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
+//   const appCheck = initializeAppCheck(app, {
+//     provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
+//     isTokenAutoRefreshEnabled: true,
+//   })
+//
+// NO activar enforcement hasta verificar métricas en Firebase Console.

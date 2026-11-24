@@ -1,6 +1,16 @@
 import { useState } from 'react'
+import { Icon } from './components/Icon'
+import { LogoutButton } from './components/LogoutButton'
+import { useAuth } from './lib/auth'
+import { LoginScreen } from './components/LoginScreen'
+import type { Role, ServiceRequest } from './types'
 
-type Role = 'admin' | 'kitchen' | 'cashier' | 'waiter' | 'client'
+type IconName =
+  | 'grid' | 'bag' | 'users' | 'chart' | 'message' | 'table' | 'wallet'
+  | 'chef' | 'cash' | 'phone' | 'search' | 'bell' | 'arrow' | 'clock'
+  | 'check' | 'plus' | 'more' | 'calendar' | 'download' | 'settings'
+  | 'lock' | 'logout'
+
 type ServiceRequest = {
   id: number
   table: string
@@ -8,37 +18,6 @@ type ServiceRequest = {
   comment?: string
   time: string
   status: 'pending' | 'attending' | 'done'
-}
-type IconName =
-  | 'grid' | 'bag' | 'users' | 'chart' | 'message' | 'table' | 'wallet'
-  | 'chef' | 'cash' | 'phone' | 'search' | 'bell' | 'arrow' | 'clock'
-  | 'check' | 'plus' | 'more' | 'calendar' | 'download' | 'settings'
-
-const iconPaths: Record<IconName, React.ReactNode> = {
-  grid: <><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></>,
-  bag: <><path d="M6 8h12l1 13H5L6 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></>,
-  users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></>,
-  chart: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></>,
-  message: <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/>,
-  table: <><path d="M4 5h16M6 5l-2 16M18 5l2 16M5 15h14"/></>,
-  wallet: <><path d="M3 7a3 3 0 0 1 3-3h13v16H6a3 3 0 0 1-3-3V7Z"/><path d="M15 10h6v5h-6a2 2 0 0 1 0-5Z"/></>,
-  chef: <><path d="M6 10a4 4 0 1 1 3-7 4 4 0 0 1 6 0 4 4 0 1 1 3 7v9H6v-9Z"/><path d="M6 14h12"/></>,
-  cash: <><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9h.01M18 15h.01"/></>,
-  phone: <><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/></>,
-  search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
-  bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></>,
-  arrow: <><path d="M5 12h14M13 6l6 6-6 6"/></>,
-  clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></>,
-  check: <path d="m5 12 4 4L19 6"/>,
-  plus: <path d="M12 5v14M5 12h14"/>,
-  more: <><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>,
-  calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
-  download: <><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></>,
-  settings: <><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2-.5-.7-1.7 1-1.8-2-2-1.8 1-1.7-.7L11.5 3h-3L8 5l-1.7.7-1.8-1-2 2 1 1.8L2.8 10l-2 .5v3l2 .5.7 1.7-1 1.8 2 2 1.8-1 1.7.7.5 2h3l.5-2 1.7-.7 1.8 1 2-2-1-1.8.7-1.7 2-.5Z"/></>,
-}
-
-function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{iconPaths[name]}</svg>
 }
 
 const adminNav = [
@@ -62,13 +41,6 @@ const orders = [
 
 function Logo({ compact = false }: { compact?: boolean }) {
   return <div className="logo-wrap"><div className="logo-mark">S</div>{!compact && <div><strong>Salvia</strong><span>RESTAURANT OS</span></div>}</div>
-}
-
-function RoleSwitcher({ role, setRole }: { role: Role; setRole: (role: Role) => void }) {
-  const roles: [Role, string, IconName][] = [['admin', 'Admin', 'grid'], ['kitchen', 'Cocina', 'chef'], ['cashier', 'Caja', 'cash'], ['waiter', 'Mozos', 'bell'], ['client', 'Cliente', 'phone']]
-  return <div className="role-switcher">
-    {roles.map(([id, label, icon]) => <button className={role === id ? 'active' : ''} onClick={() => setRole(id)} key={id}><Icon name={icon} size={16}/><span>{label}</span></button>)}
-  </div>
 }
 
 function TopBar({ title, subtitle }: { title: string; subtitle: string }) {
@@ -165,7 +137,7 @@ function GenericModule({ view }: { view: string }) {
   const data: Record<string, { title: string; intro: string; icon: IconName; rows: string[][] }> = {
     employees: {title:'Equipo del restaurante',intro:'Administra roles, permisos y actividad del personal.',icon:'users',rows:[['Lucía Torres','Caja','Activa','Hoy, 12:40'],['Marco Ríos','Cocina','Activo','Hoy, 12:38'],['Elena Paz','Administradora','Activa','Hoy, 11:52']]},
     reports: {title:'Ventas y reportes',intro:'Solo los cobros validados se incluyen como ingresos.',icon:'chart',rows:[['Ventas cobradas','S/ 4,280','128 operaciones','+12.5%'],['Pedidos entregados','134','6 por cobrar','94%'],['Mesas atendidas','47','Ticket S/ 91.06','+8.2%']]},
-    reviews: {title:'Reseñas privadas',intro:'Comentarios visibles únicamente para administradores autorizados.',icon:'message',rows:[['Calidad de comida','“El chaufa estuvo excelente”','Positiva','Revisada'],['Tiempo de espera','“Demoró más de 25 minutos”','Atención media','Pendiente'],['Limpieza','“Todo impecable”','Positiva','Revisada']]},
+    reviews: {title:'Reseñas privadas',intro:'Comentarios visibles únicamente para administradores autorizados.',icon:'message',rows:[['Calidad de comida','"El chaufa estuvo excelente"','Positiva','Revisada'],['Tiempo de espera','"Demoró más de 25 minutos"','Atención media','Pendiente'],['Limpieza','"Todo impecable"','Positiva','Revisada']]},
     expenses: {title:'Control de gastos e ingredientes',intro:'Cuaderno administrativo de compras, proveedores e insumos.',icon:'wallet',rows:[['Arroz superior','25 kg','S/ 112.50','Mercado Central'],['Aceite vegetal','12 litros','S/ 96.00','Distribuidora Sol'],['Verduras mixtas','18 kg','S/ 144.00','Huerto Norte']]},
   }
   const d = data[view] || data.reports
@@ -176,7 +148,7 @@ function GenericModule({ view }: { view: string }) {
   </div>
 }
 
-function AdminApp({ setRole }: { setRole: (role: Role) => void }) {
+function AdminApp({ role }: { role: Role }) {
   const [view, setView] = useState('dashboard')
   const current = adminNav.find(n => n[0] === view)
   return <div className="admin-shell">
@@ -187,11 +159,11 @@ function AdminApp({ setRole }: { setRole: (role: Role) => void }) {
     <main className="admin-main"><TopBar title={current?.[1] || 'Vista general'} subtitle={view==='dashboard'?'MIÉRCOLES, 18 DE NOVIEMBRE': 'ADMINISTRACIÓN'}/>
       <div className="admin-content">{view==='dashboard'?<AdminDashboard/>:view==='products'?<ProductsView/>:view==='tables'?<TablesView/>:<GenericModule view={view}/>}</div>
     </main>
-    <div className="floating-role"><RoleSwitcher role="admin" setRole={setRole}/></div>
+    <LogoutButton role={role} />
   </div>
 }
 
-function KitchenApp({ setRole }: { setRole: (role: Role) => void }) {
+function KitchenApp({ role }: { role: Role }) {
   const [moved, setMoved] = useState<string[]>([])
   const columns = [
     {title:'Pedidos nuevos',count:3,color:'new',action:'Aceptar pedido'},
@@ -210,11 +182,11 @@ function KitchenApp({ setRole }: { setRole: (role: Role) => void }) {
           <button className="order-action" onClick={()=>setMoved([...moved,`${ci}-${oi}`])}>{moved.includes(`${ci}-${oi}`)?<><Icon name="check"/> Actualizado</>:<>{col.action}<Icon name="arrow"/></>}</button>
         </article>:null)}</div>
       </section>)}</div>
-    </main><div className="floating-role"><RoleSwitcher role="kitchen" setRole={setRole}/></div>
+    </main><LogoutButton role={role} />
   </div>
 }
 
-function CashierApp({ setRole }: { setRole: (role: Role) => void }) {
+function CashierApp({ role }: { role: Role }) {
   const [selected, setSelected] = useState(7)
   const [paid, setPaid] = useState(false)
   return <div className="ops-shell cashier-shell"><header className="ops-header"><Logo/><div className="ops-title"><Icon name="cash"/><div><strong>Panel de caja</strong><span>Turno de Lucía · Caja 01</span></div></div><div className="ops-right"><div className="live"><i/> Sincronizado</div><button className="icon-button"><Icon name="bell"/></button><div className="avatar">LT</div></div></header>
@@ -231,11 +203,11 @@ function CashierApp({ setRole }: { setRole: (role: Role) => void }) {
       <div className="change"><span>Vuelto</span><strong>S/ 18.00</strong></div>
       <button onClick={()=>setPaid(true)} className={`pay-button ${paid?'paid':''}`}>{paid?<><Icon name="check"/>Pago registrado</>:<>Confirmar pago · S/ 82.00<Icon name="arrow"/></>}</button>
       <p className="release-note">La mesa se liberará cuando todos los pedidos estén entregados y pagados.</p>
-    </aside></main><div className="floating-role"><RoleSwitcher role="cashier" setRole={setRole}/></div>
+    </aside></main><LogoutButton role={role} />
   </div>
 }
 
-function WaiterApp({ setRole, requests, updateRequest }: { setRole: (role: Role) => void; requests: ServiceRequest[]; updateRequest: (id: number, status: ServiceRequest['status']) => void }) {
+function WaiterApp({ role, requests, updateRequest }: { role: Role; requests: ServiceRequest[]; updateRequest: (id: number, status: ServiceRequest['status']) => void }) {
   const active = requests.filter(request => request.status !== 'done')
   const completed = requests.filter(request => request.status === 'done')
   return <div className="ops-shell waiter-shell">
@@ -245,7 +217,7 @@ function WaiterApp({ setRole, requests, updateRequest }: { setRole: (role: Role)
       <div className="waiter-layout"><section className="request-feed"><div className="feed-head"><div><i/><h2>Solicitudes activas</h2><b>{active.length}</b></div><span>Actualizado ahora</span></div>
         {active.length===0?<div className="empty-requests"><div><Icon name="check"/></div><h3>Todo está atendido</h3><p>Las nuevas solicitudes aparecerán aquí en tiempo real.</p></div>:active.map(item=><article className={`service-request ${item.status}`} key={item.id}>
           <div className="request-table"><span>MESA</span><strong>{item.table}</strong></div>
-          <div className="request-detail"><div><span className={`request-state ${item.status}`}><i/>{item.status==='pending'?'Nueva solicitud':'Mozo en camino'}</span><time><Icon name="clock" size={13}/>{item.time}</time></div><h3>Mesa {item.table} necesita {item.request.toLowerCase()}</h3>{item.comment&&<p>“{item.comment}”</p>}<small>Solicitud #{String(item.id).slice(-4).padStart(4,'0')} · Enviada desde el menú QR</small></div>
+          <div className="request-detail"><div><span className={`request-state ${item.status}`}><i/>{item.status==='pending'?'Nueva solicitud':'Mozo en camino'}</span><time><Icon name="clock" size={13}/>{item.time}</time></div><h3>Mesa {item.table} necesita {item.request.toLowerCase()}</h3>{item.comment&&<p>"{item.comment}"</p>}<small>Solicitud #{String(item.id).slice(-4).padStart(4,'0')} · Enviada desde el menú QR</small></div>
           <div className="request-actions">{item.status==='pending'?<button onClick={()=>updateRequest(item.id,'attending')}>Voy a atender <Icon name="arrow"/></button>:<><button className="complete-request" onClick={()=>updateRequest(item.id,'done')}><Icon name="check"/> Marcar atendida</button><button className="request-more"><Icon name="more"/></button></>}</div>
         </article>)}
       </section>
@@ -253,11 +225,11 @@ function WaiterApp({ setRole, requests, updateRequest }: { setRole: (role: Role)
         <div className="recent-card"><div><h2>Atendidas recientemente</h2><Icon name="check"/></div>{completed.slice(0,3).map(item=><p key={item.id}><span><strong>Mesa {item.table} · {item.request}</strong><small>{item.time}</small></span><i><Icon name="check" size={12}/></i></p>)}</div>
         <div className="service-tip"><Icon name="bell"/><div><strong>Respuesta rápida</strong><p>Las mesas reciben una confirmación cuando tomas su solicitud.</p></div></div>
       </aside></div>
-    </main><div className="floating-role"><RoleSwitcher role="waiter" setRole={setRole}/></div>
+    </main><LogoutButton role={role} />
   </div>
 }
 
-function ClientApp({ setRole, onRequest }: { setRole: (role: Role) => void; onRequest: (request: Omit<ServiceRequest, 'id' | 'time' | 'status'>) => void }) {
+function ClientApp({ role, onRequest }: { role: Role; onRequest: (request: Omit<ServiceRequest, 'id' | 'time' | 'status'>) => void }) {
   const [tab, setTab] = useState<'menu'|'orders'|'pay'|'review'>('menu')
   const [cart, setCart] = useState(1)
   const [detail, setDetail] = useState<(typeof dishes)[0] | null>(null)
@@ -295,11 +267,26 @@ function ClientApp({ setRole, onRequest }: { setRole: (role: Role) => void; onRe
         <p className="attention-note">Esta solicitud no genera un pedido ni un cobro adicional.</p>
       </>:<div className="attention-success"><div className="confirm-icon"><Icon name="check"/></div><span>SOLICITUD ENVIADA</span><h2>Ya avisamos al personal</h2><p>Tu solicitud de <strong>{(attentionOption||attentionText).toLowerCase()}</strong> fue enviada. Alguien se acercará pronto a la Mesa 07.</p><div className="attention-status"><i/><span>Buscando personal disponible</span></div><button onClick={()=>setAttention(false)}>Entendido</button></div>}
     </div></div>}
-  </div><div className="client-role"><RoleSwitcher role="client" setRole={setRole}/></div></div>
+  </div><LogoutButton role={role} /></div>
+}
+
+function LoadingScreen() {
+  return <div className="login-screen">
+    <div className="login-card">
+      <div className="login-brand">
+        <div className="logo-mark">S</div>
+        <div><strong>Salvia</strong><span>RESTAURANT OS</span></div>
+      </div>
+      <div className="login-loading">
+        <div className="login-spinner" />
+        <p>Conectando…</p>
+      </div>
+    </div>
+  </div>
 }
 
 export default function App() {
-  const [role, setRole] = useState<Role>('admin')
+  const { user, loading } = useAuth()
   const [requests, setRequests] = useState<ServiceRequest[]>([
     {id:3021,table:'09',request:'Más cremas',comment:'Por favor, mayonesa y ají de la casa.',time:'Hace 1 min',status:'pending'},
     {id:3020,table:'04',request:'Agua',comment:'Un vaso con agua sin hielo.',time:'Hace 3 min',status:'pending'},
@@ -308,9 +295,15 @@ export default function App() {
   ])
   const addRequest = (request: Omit<ServiceRequest, 'id' | 'time' | 'status'>) => setRequests(current => [{...request,id:Date.now(),time:'Ahora',status:'pending'},...current])
   const updateRequest = (id: number, status: ServiceRequest['status']) => setRequests(current => current.map(request => request.id===id?{...request,status}:request))
-  if (role === 'kitchen') return <KitchenApp setRole={setRole}/>
-  if (role === 'cashier') return <CashierApp setRole={setRole}/>
-  if (role === 'waiter') return <WaiterApp setRole={setRole} requests={requests} updateRequest={updateRequest}/>
-  if (role === 'client') return <ClientApp setRole={setRole} onRequest={addRequest}/>
-  return <AdminApp setRole={setRole}/>
+
+  if (loading) return <LoadingScreen />
+  if (!user) return <LoginScreen />
+
+  const role = user.role
+
+  if (role === 'kitchen') return <KitchenApp role={role} />
+  if (role === 'cashier') return <CashierApp role={role} />
+  if (role === 'waiter') return <WaiterApp role={role} requests={requests} updateRequest={updateRequest} />
+  if (role === 'client') return <ClientApp role={role} onRequest={addRequest} />
+  return <AdminApp role={role} />
 }

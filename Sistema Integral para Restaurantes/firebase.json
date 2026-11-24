@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "restaurante-00": {
+      "firestore": {
+        "rules": "firestore.rules"
+      },
+      "storage": {
+        "rules": "storage.rules"
+      }
+    }
+  }
+}

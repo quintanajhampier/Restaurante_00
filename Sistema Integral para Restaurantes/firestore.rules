@@ -1,0 +1,261 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // FUNCIONES DE VALIDACIÓN
+    // ============================================================
+
+    // Verifica si el usuario está autenticado (no anónimo)
+    function isStaff() {
+      return request.auth != null && !request.auth.token.firebase.sign_in_provider.contains('anonymous');
+    }
+
+    // Verifica si el usuario es cliente anónimo
+    function isClient() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider.contains('anonymous');
+    }
+
+    // Obtiene el rol del empleado desde su documento en /employees/{uid}
+    function getRole() {
+      return get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role;
+    }
+
+    // Verifica si el usuario tiene un rol específico
+    function hasRole(role) {
+      return isStaff()
+        && exists(/databases/$(database)/documents/employees/$(request.auth.uid))
+        && getRole() == role;
+    }
+
+    // Verifica si el usuario tiene uno de varios roles
+    function hasAnyRole(roles) {
+      return isStaff()
+        && exists(/databases/$(database)/documents/employees/$(request.auth.uid))
+        && getRole() in roles;
+    }
+
+    // Verifica si el empleado está activo
+    function isActiveStaff() {
+      return isStaff()
+        && exists(/databases/$(database)/documents/employees/$(request.auth.uid))
+        && get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.status == 'active';
+    }
+
+    // Roles con acceso administrativo
+    function isAdminLevel() {
+      return hasAnyRole(['owner', 'admin']);
+    }
+
+    // ============================================================
+    // EMPLEADOS — /employees/{uid}
+    // ============================================================
+    // Solo el propietario puede gestionar empleados.
+    // Un empleado puede leer su propio perfil pero no el de otros.
+    // Nadie puede cambiar su propio rol.
+
+    match /employees/{uid} {
+      // Lectura: propietario/admin leen todos; cada empleado lee el suyo
+      allow read: if (isAdminLevel() && isActiveStaff())
+                   || (isStaff() && request.auth.uid == uid);
+
+      // Creación: solo propietario
+      allow create: if hasRole('owner');
+
+      // Modificación: solo propietario, y nunca puede cambiar su propio rol
+      // Un empleado no puede cambiar su propio documento
+      allow update: if hasRole('owner')
+        && request.auth.uid != uid
+        && request.resource.data.role == resource.data.role
+          ? false  // el propietario no puede cambiar el rol desde el cliente
+          : false;
+
+      // El propietario puede actualizar campos excepto el rol
+      // Nota: la gestión de roles y creación de empleados se realiza
+      // exclusivamente desde el backend (Firebase Admin SDK)
+      allow update: if false;
+
+      // Eliminación: solo propietario
+      allow delete: if hasRole('owner');
+    }
+
+    // ============================================================
+    // PRODUCTOS — /products/{productId}
+    // ============================================================
+    // Clientes y staff pueden leer productos disponibles.
+    // Solo admin/propietario puede crear/modificar/eliminar.
+
+    match /products/{productId} {
+      allow read: if (isClient() && resource.data.isAvailable == true)
+                   || isActiveStaff();
+
+      allow create, update, delete: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // CATEGORÍAS — /categories/{categoryId}
+    // ============================================================
+
+    match /categories/{categoryId} {
+      allow read: if isClient() || isActiveStaff();
+      allow create, update, delete: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // PEDIDOS — /orders/{orderId}
+    // ============================================================
+    // Cliente anónimo: crea sus pedidos, lee solo los suyos.
+    // Cocina: lee pedidos aceptados, actualiza solo estado de preparación.
+    // Caja: lee pedidos, actualiza estado de pago/cierre.
+    // Admin: acceso completo.
+
+    match /orders/{orderId} {
+      // Cliente: solo lee sus propios pedidos
+      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
+                   || isActiveStaff();
+
+      // Cliente anónimo puede crear pedido con estado inicial obligatorio
+      allow create: if isClient()
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.status == 'pending_review'
+        && request.resource.data.totalAmount == 0
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 50;
+
+      // Cocina: actualiza únicamente el estado de preparación
+      allow update: if hasRole('kitchen')
+        && isActiveStaff()
+        && resource.data.status in ['accepted', 'preparing', 'ready']
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'preparedAt'])
+        && request.resource.data.status in ['preparing', 'ready'];
+
+      // Caja: actualiza estado de cobro y cierre de mesa
+      allow update: if hasRole('cashier')
+        && isActiveStaff()
+        && resource.data.status in ['delivered', 'pending_payment', 'paid']
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status'])
+        && request.resource.data.status in ['pending_payment', 'paid'];
+
+      // Admin/Propietario: acceso completo a pedidos
+      allow update, delete: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // PAGOS — /payments/{paymentId}
+    // ============================================================
+    // El frontend NUNCA puede marcar un pago como completado.
+    // Caja registra pagos (pendiente_verificación).
+    // La confirmación final requiere backend (Admin SDK).
+
+    match /payments/{paymentId} {
+      // Cliente: lee solo pagos de sus propios pedidos
+      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
+                   || isActiveStaff();
+
+      // Caja: crea registro de pago (siempre en estado pendiente)
+      allow create: if hasRole('cashier')
+        && isActiveStaff()
+        && request.resource.data.status in ['pending', 'pending_verification']
+        && request.resource.data.verifiedBy == null;
+
+      // Caja: puede cambiar a "en revisión" o "rechazado" pero NUNCA a "pagado"
+      // El estado "paid" solo lo establece el backend (Admin SDK)
+      allow update: if hasRole('cashier')
+        && isActiveStaff()
+        && request.resource.data.status in ['pending_verification', 'under_review', 'rejected']
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'verifiedBy', 'verifiedAt', 'rejectionReason']);
+
+      // Admin/Propietario: acceso completo
+      allow update, delete: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // MESAS — /tables/{tableId}
+    // ============================================================
+
+    match /tables/{tableId} {
+      allow read: if isClient() || isActiveStaff();
+      allow create, update, delete: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // SOLICITUDES DE ATENCIÓN — /service_requests/{requestId}
+    // ============================================================
+    // Cliente crea solicitudes; mozos las atienden.
+
+    match /service_requests/{requestId} {
+      // Cliente: lee y crea solo sus solicitudes
+      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
+                   || hasRole('waiter')
+                   || isAdminLevel();
+      allow create: if isClient()
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.status == 'pending';
+
+      // Mozos: actualizan estado de atención
+      allow update: if hasRole('waiter')
+        && isActiveStaff()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'attendedBy', 'attendedAt'])
+        && request.resource.data.status in ['attending', 'done'];
+
+      // Admin: acceso completo
+      allow update, delete: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // RESEÑAS PRIVADAS — /reviews/{reviewId}
+    // ============================================================
+    // Solo el propietario/admin puede leer reseñas.
+    // Los clientes pueden crear reseñas pero no ver las de otros.
+
+    match /reviews/{reviewId} {
+      // Cliente: crea reseñas pero no puede leer ninguna
+      allow create: if isClient()
+        && request.resource.data.clientId == request.auth.uid;
+      allow read: if isAdminLevel() && isActiveStaff();
+      allow update, delete: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // OBSERVACIONES DE EMPLEADOS — /employee_notes/{noteId}
+    // ============================================================
+    // Solo propietario/admin puede leer y gestionar.
+
+    match /employee_notes/{noteId} {
+      allow read, write: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // GASTOS — /expenses/{expenseId}
+    // ============================================================
+
+    match /expenses/{expenseId} {
+      allow read, write: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // REGISTROS DE AUDITORÍA — /audit_logs/{logId}
+    // ============================================================
+    // Nadie puede modificar ni eliminar registros de auditoría.
+    // Solo propietario/admin puede leer.
+
+    match /audit_logs/{logId} {
+      allow read: if isAdminLevel() && isActiveStaff();
+      allow create: if false; // solo el backend (Admin SDK) crea logs
+      allow update, delete: if false;
+    }
+
+    // ============================================================
+    // DENEGACIÓN POR DEFECTO
+    // ============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

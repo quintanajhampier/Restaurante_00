@@ -1,0 +1,66 @@
+rules_version = '2';
+
+service cloud.storage {
+  match /b/{bucket}/o {
+
+    // Verifica si el usuario es staff autenticado
+    function isStaff() {
+      return request.auth != null && !request.auth.token.firebase.sign_in_provider.contains('anonymous');
+    }
+
+    function isClient() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider.contains('anonymous');
+    }
+
+    function getRole() {
+      return get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role;
+    }
+
+    function isAdminLevel() {
+      return isStaff()
+        && exists(/databases/$(database)/documents/employees/$(request.auth.uid))
+        && getRole() in ['owner', 'admin'];
+    }
+
+    function isActiveStaff() {
+      return isStaff()
+        && exists(/databases/$(database)/documents/employees/$(request.auth.uid))
+        && get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.status == 'active';
+    }
+
+    // ============================================================
+    // IMÁGENES DE PRODUCTOS — /products/{filename}
+    // ============================================================
+    // Público: lectura de imágenes de productos
+    // Admin: escritura/eliminación
+
+    match /products/{filename} {
+      allow read: if true;
+      allow write, delete: if isAdminLevel() && isActiveStaff()
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)')
+        && request.resource.size < 5 * 1024 * 1024; // 5MB máximo
+    }
+
+    // ============================================================
+    // CONSTANCIAS DE PAGO — /payment_proofs/{filename}
+    // ============================================================
+    // Cliente: puede subir su propia constancia
+    // Caja/Admin: pueden leer
+    // Nadie puede eliminar desde el cliente
+
+    match /payment_proofs/{filename} {
+      allow read: if isActiveStaff();
+      allow write: if isClient()
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)')
+        && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if isAdminLevel() && isActiveStaff();
+    }
+
+    // ============================================================
+    // DENEGACIÓN POR DEFECTO
+    // ============================================================
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
