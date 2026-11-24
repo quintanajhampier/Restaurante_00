@@ -1,6 +1,16 @@
 node_modules/
 .env
+.env.local
+.env.production
+.env.production.local
 vite.config.js.timestamp-*.mjs
+
+# Credenciales y secretos
+*.pem
+*.key
+service-account*.json
+firebase-adminsdk*.json
+credentials*.json
 vite.config.mjs.timestamp-*.mjs
 vite.config.cjs.timestamp-*.mjs
 vite.config.ts.timestamp-*.mjs
