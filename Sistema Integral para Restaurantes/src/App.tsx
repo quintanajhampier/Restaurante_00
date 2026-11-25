@@ -3,22 +3,7 @@ import { Icon } from './components/Icon'
 import { LogoutButton } from './components/LogoutButton'
 import { useAuth } from './lib/auth'
 import { LoginScreen } from './components/LoginScreen'
-import type { Role, ServiceRequest } from './types'
-
-type IconName =
-  | 'grid' | 'bag' | 'users' | 'chart' | 'message' | 'table' | 'wallet'
-  | 'chef' | 'cash' | 'phone' | 'search' | 'bell' | 'arrow' | 'clock'
-  | 'check' | 'plus' | 'more' | 'calendar' | 'download' | 'settings'
-  | 'lock' | 'logout'
-
-type ServiceRequest = {
-  id: number
-  table: string
-  request: string
-  comment?: string
-  time: string
-  status: 'pending' | 'attending' | 'done'
-}
+import type { IconName, Role, ServiceRequest } from './types'
 
 const adminNav = [
   ['dashboard', 'Vista general', 'grid'], ['products', 'Productos', 'bag'],
@@ -297,7 +282,7 @@ export default function App() {
   const updateRequest = (id: number, status: ServiceRequest['status']) => setRequests(current => current.map(request => request.id===id?{...request,status}:request))
 
   if (loading) return <LoadingScreen />
-  if (!user) return <LoginScreen />
+  if (!user || !user.role) return <LoginScreen />
 
   const role = user.role
 

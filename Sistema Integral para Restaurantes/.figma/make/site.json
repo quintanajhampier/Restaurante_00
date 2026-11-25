@@ -1,0 +1,14 @@
+{
+  "title": "Salvia · Restaurant OS",
+  "description": "Sistema integral de gestión para Casa Misti",
+  "language": "es",
+  "robots": {
+    "index": false
+  },
+  "icons": {
+    "icon": "/favicon.png"
+  },
+  "accessibility": {
+    "addBypassLinks": true
+  }
+}

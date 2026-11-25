@@ -1,3 +1,9 @@
+export type IconName =
+  | 'grid' | 'bag' | 'users' | 'chart' | 'message' | 'table' | 'wallet'
+  | 'chef' | 'cash' | 'phone' | 'search' | 'bell' | 'arrow' | 'clock'
+  | 'check' | 'plus' | 'more' | 'calendar' | 'download' | 'settings'
+  | 'lock' | 'logout'
+
 export type Role = 'owner' | 'admin' | 'cashier' | 'kitchen' | 'waiter' | 'client'
 
 export type StaffRole = Exclude<Role, 'client'>
@@ -92,4 +98,13 @@ export interface Payment {
   verifiedBy: string | null
   verifiedAt: number | null
   createdAt: number
+}
+
+export interface ServiceRequest {
+  id: number
+  table: string
+  request: string
+  comment?: string
+  time: string
+  status: 'pending' | 'attending' | 'done'
 }
