@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Icon } from './components/Icon'
 import { LogoutButton } from './components/LogoutButton'
 import { useAuth } from './lib/auth'
+import { firebaseInitError } from './lib/firebase'
 import { LoginScreen } from './components/LoginScreen'
 import type { IconName, Role, ServiceRequest } from './types'
 
@@ -255,6 +256,22 @@ function ClientApp({ role, onRequest }: { role: Role; onRequest: (request: Omit<
   </div><LogoutButton role={role} /></div>
 }
 
+function ConfigErrorScreen({ message }: { message: string }) {
+  return <div className="login-screen">
+    <div className="login-card">
+      <div className="login-brand">
+        <div className="logo-mark">S</div>
+        <div><strong>Salvia</strong><span>RESTAURANT OS</span></div>
+      </div>
+      <div className="login-error" style={{textAlign:'center',padding:'20px'}}>
+        <strong style={{display:'block',fontSize:'13px',marginBottom:'8px'}}>Error de configuración</strong>
+        <p style={{fontSize:'11px',lineHeight:'1.5',margin:0}}>{message}</p>
+        <p style={{fontSize:'10px',marginTop:'12px',color:'#999'}}>Verifica que el archivo .env exista y contenga todas las variables VITE_FIREBASE_*.</p>
+      </div>
+    </div>
+  </div>
+}
+
 function LoadingScreen() {
   return <div className="login-screen">
     <div className="login-card">
@@ -281,6 +298,7 @@ export default function App() {
   const addRequest = (request: Omit<ServiceRequest, 'id' | 'time' | 'status'>) => setRequests(current => [{...request,id:Date.now(),time:'Ahora',status:'pending'},...current])
   const updateRequest = (id: number, status: ServiceRequest['status']) => setRequests(current => current.map(request => request.id===id?{...request,status}:request))
 
+  if (firebaseInitError) return <ConfigErrorScreen message={firebaseInitError} />
   if (loading) return <LoadingScreen />
   if (!user || !user.role) return <LoginScreen />
 
