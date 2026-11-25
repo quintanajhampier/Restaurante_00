@@ -281,7 +281,7 @@ function LoadingScreen() {
       </div>
       <div className="login-loading">
         <div className="login-spinner" />
-        <p>Conectando…</p>
+        <p>Conectando al sistema…</p>
       </div>
     </div>
   </div>
