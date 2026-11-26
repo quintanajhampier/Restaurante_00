@@ -2,7 +2,7 @@ export type IconName =
   | 'grid' | 'bag' | 'users' | 'chart' | 'message' | 'table' | 'wallet'
   | 'chef' | 'cash' | 'phone' | 'search' | 'bell' | 'arrow' | 'clock'
   | 'check' | 'plus' | 'more' | 'calendar' | 'download' | 'settings'
-  | 'lock' | 'logout'
+  | 'lock' | 'logout' | 'close' | 'edit' | 'trash' | 'image'
 
 export type Role = 'owner' | 'admin' | 'cashier' | 'kitchen' | 'waiter' | 'client'
 
@@ -17,6 +17,34 @@ export const ROLE_LABELS: Record<Role, string> = {
   kitchen: 'Cocina',
   waiter: 'Mozos',
   client: 'Cliente',
+}
+
+export type PanelType = 'admin' | 'kitchen' | 'cashier' | 'waiter' | 'client'
+
+export const PANEL_LABELS: Record<PanelType, string> = {
+  admin: 'Admin',
+  kitchen: 'Cocina',
+  cashier: 'Caja',
+  waiter: 'Mozos',
+  client: 'Cliente',
+}
+
+export const PANEL_ICONS: Record<PanelType, IconName> = {
+  admin: 'grid',
+  kitchen: 'chef',
+  cashier: 'cash',
+  waiter: 'bell',
+  client: 'phone',
+}
+
+export function roleCanAccessPanel(role: Role, panel: PanelType): boolean {
+  if (role === 'owner') return true
+  if (role === 'admin' && panel === 'admin') return true
+  if (role === 'kitchen' && panel === 'kitchen') return true
+  if (role === 'cashier' && panel === 'cashier') return true
+  if (role === 'waiter' && panel === 'waiter') return true
+  if (role === 'client' && panel === 'client') return true
+  return false
 }
 
 export type OrderStatus =
@@ -55,6 +83,7 @@ export interface AuthUser {
   email: string | null
   role: Role | null
   isAnonymous: boolean
+  activePanel: PanelType
 }
 
 export interface MenuItem {
@@ -65,6 +94,13 @@ export interface MenuItem {
   category: string
   imageUrl: string
   isAvailable: boolean
+  createdAt: number
+}
+
+export interface Category {
+  id: string
+  name: string
+  order: number
 }
 
 export interface OrderItem {
@@ -91,20 +127,34 @@ export interface Order {
 export interface Payment {
   id: string
   orderId: string
+  clientId: string
   amount: number
   method: PaymentMethod
   status: PaymentStatus
   reference: string
+  proofUrl: string | null
   verifiedBy: string | null
   verifiedAt: number | null
   createdAt: number
 }
 
+export interface TableInfo {
+  id: string
+  number: string
+  status: 'free' | 'busy' | 'prep' | 'ready' | 'due'
+  seats: number
+  createdAt: number
+}
+
 export interface ServiceRequest {
-  id: number
-  table: string
+  id: string
+  tableId: string
+  tableNumber: string
+  clientId: string
   request: string
-  comment?: string
-  time: string
+  comment: string
   status: 'pending' | 'attending' | 'done'
+  attendedBy: string | null
+  attendedAt: number | null
+  createdAt: number
 }
