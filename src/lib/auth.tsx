@@ -8,7 +8,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
-import { auth, db } from './firebase'
+import { auth, db, firebaseInitError } from './firebase'
 import type { AuthUser, Role, StaffRole, PanelType } from '../types'
 import { roleCanAccessPanel } from '../types'
 
@@ -26,6 +26,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 async function fetchUserRole(uid: string): Promise<Role | null> {
+  if (!db) return null
   const employeeDoc = await getDoc(doc(db, 'employees', uid))
   if (employeeDoc.exists()) {
     const data = employeeDoc.data()
@@ -51,6 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!auth || firebaseInitError) {
+      setLoading(false)
+      return
+    }
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
       setError(null)
       if (!firebaseUser) {
@@ -98,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginStaff = useCallback(async (email: string, password: string, panel: PanelType) => {
     setError(null)
+    if (!auth) { setError('Firebase no está configurado.'); return }
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password)
       const role = await fetchUserRole(credential.user.uid)
@@ -140,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginClient = useCallback(async () => {
     setError(null)
+    if (!auth) { setError('Firebase no está configurado.'); return }
     try {
       await signInAnonymously(auth)
     } catch (err) {
@@ -155,11 +162,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     setError(null)
+    if (!auth) return
     await signOut(auth)
   }, [])
 
   const resetPassword = useCallback(async (email: string) => {
     setError(null)
+    if (!auth) { setError('Firebase no está configurado.'); return }
     try {
       await sendPasswordResetEmail(auth, email)
     } catch (err) {

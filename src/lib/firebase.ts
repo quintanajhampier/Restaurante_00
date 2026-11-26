@@ -24,19 +24,21 @@ export const firebaseInitError: string | null = (() => {
   return null
 })()
 
-let app: FirebaseApp
-let auth: Auth
-let db: Firestore
-let storage: FirebaseStorage
+let app: FirebaseApp | null = null
+let auth: Auth | null = null
+let db: Firestore | null = null
+let storage: FirebaseStorage | null = null
 
-try {
-  app = initializeApp(firebaseConfig)
-  auth = getAuth(app)
-  db = getFirestore(app)
-  storage = getStorage(app)
-} catch (err) {
-  const msg = err instanceof Error ? err.message : String(err)
-  throw new Error(`Firebase no pudo inicializar: ${msg}`)
+if (!firebaseInitError) {
+  try {
+    app = initializeApp(firebaseConfig)
+    auth = getAuth(app)
+    db = getFirestore(app)
+    storage = getStorage(app)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Firebase no pudo inicializar: ${msg}`)
+  }
 }
 
 export { app, auth, db, storage }
