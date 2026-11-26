@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "serve dist -l 5173",
     "build": "vite build",
     "preview": "vite preview",
     "format": "oxfmt"
@@ -21,6 +21,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.7.0",
     "oxfmt": "^0.76.0",
+    "serve": "^14.2.8",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
     "vite": "^6.4.6"
